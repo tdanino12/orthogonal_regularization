@@ -53,7 +53,7 @@ class DMAQ_qattenLearner:
         mac_out = []
         mac.init_hidden(batch.batch_size)
         for t in range(batch.max_seq_length):
-            agent_outs = mac.forward(batch, t=t)
+            agent_outs, out_estimate, mean, var = mac.forward(batch, t=t)
             mac_out.append(agent_outs)
         mac_out = th.stack(mac_out, dim=1)  # Concat over time
 
@@ -174,6 +174,12 @@ class DMAQ_qattenLearner:
             WTW = th.mm(W, W.t())
             reg = th.norm(WTW - th.eye(WTW.size(0)))
             loss += weight_decay * reg
+
+        reproduction_loss = th.nn.functional.binary_cross_entropy(out_estimate, agent_outs, reduction='sum')
+        KLD = - 0.5 * th.sum(1+ var - mean.pow(2) - var.exp())
+        vea_loss = reproduction_loss + KLD
+        vea_loss = (vea_loss * mask).sum() / mask.sum()
+        loss+=vea_loss
                       
         # Optimise
         optimiser.zero_grad()
