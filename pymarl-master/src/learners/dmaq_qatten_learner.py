@@ -168,6 +168,13 @@ class DMAQ_qattenLearner:
         masked_hit_prob = th.mean(is_max_action, dim=2) * mask
         hit_prob = masked_hit_prob.sum() / mask.sum()
 
+        weight_decay=1e-3
+        for param in self.mixer.DMAQ_SI_Weight_o.parameters():
+            W = param.view(param.size(0), -1)
+            WTW = th.mm(W, W.t())
+            reg = th.norm(WTW - th.eye(WTW.size(0)))
+            loss += weight_decay * reg
+                      
         # Optimise
         optimiser.zero_grad()
         loss.backward()
