@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 import pickle as pkl
 from .dmaq_qatten_weight import Qatten_Weight
-from .dmaq_si_weight import DMAQ_SI_Weight
+from .dmaq_si_weight import DMAQ_SI_Weight, DMAQ_SI_Weight_o
 
 
 class DMAQ_QattenMixer(nn.Module):
@@ -20,7 +20,8 @@ class DMAQ_QattenMixer(nn.Module):
 
         self.attention_weight = Qatten_Weight(args)
         self.si_weight = DMAQ_SI_Weight(args)
-
+        self.si_weight_o = DMAQ_SI_Weight_o(args)
+        
     def calc_v(self, agent_qs):
         agent_qs = agent_qs.view(-1, self.n_agents)
         v_tot = th.sum(agent_qs, dim=-1)
@@ -37,10 +38,13 @@ class DMAQ_QattenMixer(nn.Module):
         adv_w_final = self.si_weight(states, actions)
         adv_w_final = adv_w_final.view(-1, self.n_agents)
 
+        adv_w_final_o = self.si_weight_o(states, actions)
+        adv_w_final_o = adv_w_final_o.view(-1, self.n_agents)
+        
         if self.args.is_minus_one:
-            adv_tot = th.sum(adv_q * (adv_w_final - 1.), dim=1)
+            adv_tot = th.sum(adv_q * (adv_w_final - 1.+adv_w_final_o), dim=1)
         else:
-            adv_tot = th.sum(adv_q * adv_w_final, dim=1)
+            adv_tot = th.sum(adv_q * (adv_w_final+adv_w_final_o), dim=1)
         return adv_tot
 
     def calc(self, agent_qs, states, actions=None, max_q_i=None, is_v=False):
